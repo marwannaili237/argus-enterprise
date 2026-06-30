@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Argus OSINT Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--card:rgba(26,26,46,.75);--card-solid:#1a1a2e;--accent:#e94560;--accent2:#0f3460;--border:#16213e;--text:#e0e0e0;--muted:#888;--success:#00d26a;--warn:#f5a623;--danger:#e94560;--sidebar-w:240px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--card);backdrop-filter:blur(20px);border-right:1px solid var(--border);z-index:100;display:flex;flex-direction:column;transition:transform .3s}
+.sidebar .logo{padding:20px;font-size:1.4rem;font-weight:700;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.sidebar .logo span{color:var(--accent)}
+.nav{flex:1;padding:10px 0}
+.nav a{display:flex;align-items:center;gap:12px;padding:12px 20px;color:var(--muted);text-decoration:none;font-size:.9rem;font-weight:500;transition:all .2s;border-left:3px solid transparent}
+.nav a:hover,.nav a.active{color:var(--text);background:rgba(233,69,96,.08);border-left-color:var(--accent)}
+.nav a i{width:20px;text-align:center;font-size:1rem}
+.main{margin-left:var(--sidebar-w);padding:24px;min-height:100vh;animation:fadeIn .4s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.topbar h1{font-size:1.5rem;font-weight:600}
+.topbar .user-info{display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:12px;padding:20px;animation:fadeIn .4s}
+.stat-card .icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;margin-bottom:12px}
+.stat-card .value{font-size:1.8rem;font-weight:700}
+.stat-card .label{font-size:.8rem;color:var(--muted);margin-top:4px}
+.card{background:var(--card);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;animation:fadeIn .4s}
+.card h3{font-size:1rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.75rem;font-weight:500}
+.badge-success{background:rgba(0,210,106,.15);color:var(--success)}.badge-warn{background:rgba(245,166,35,.15);color:var(--warn)}
+.badge-danger{background:rgba(233,69,96,.15);color:var(--danger)}.badge-info{background:rgba(15,52,96,.3);color:#6ea8fe}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;padding:10px 12px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+td{padding:10px 12px;border-bottom:1px solid rgba(22,33,62,.5)}
+tr:hover td{background:rgba(15,52,96,.1)}
+.btn{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card-solid);color:var(--text);cursor:pointer;font-size:.85rem;font-family:inherit;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#d13a54;border-color:#d13a54}.btn-sm{padding:5px 10px;font-size:.78rem}
+.btn-danger{border-color:var(--danger);color:var(--danger)}.btn-danger:hover{background:var(--danger);color:#fff}
+input,select{padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.9rem;font-family:inherit;outline:none;transition:border .2s}
+input:focus,select:focus{border-color:var(--accent)}
+.form-row{display:flex;gap:12px;margin-bottom:16px;align-items:center}
+.search-box{flex:1;position:relative}
+.search-box input{width:100%;padding-left:40px}
+.search-box i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.evidence-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:16px}
+.evidence-card{background:var(--card-solid);border:1px solid var(--border);border-radius:10px;padding:16px;animation:fadeIn .4s}
+.evidence-card h4{font-size:.9rem;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.evidence-card .kv{display:flex;justify-content:space-between;padding:4px 0;font-size:.82rem;border-bottom:1px solid rgba(22,33,62,.3)}
+.evidence-card .kv .k{color:var(--muted)}.evidence-card .kv .v{text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plugin-group{margin-bottom:16px}
+.plugin-group h4{font-size:.95rem;font-weight:600;padding:10px 0;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--accent2);border-bottom:1px solid var(--border)}
+.plugin-group h4 i{transition:transform .2s}.plugin-group.open h4 i{transform:rotate(90deg)}
+.plugin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:12px 0;display:none}
+.plugin-group.open .plugin-grid{display:grid}
+.plugin-card{background:var(--card-solid);border:1px solid var(--border);border-radius:8px;padding:14px}
+.plugin-card h5{font-size:.85rem;font-weight:600;margin-bottom:6px}.plugin-card p{font-size:.78rem;color:var(--muted);line-height:1.4}
+.plugin-card .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
+.login-box{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:16px;padding:40px;width:380px;text-align:center;animation:fadeIn .4s}
+.login-box h2{margin-bottom:8px}.login-box .subtitle{color:var(--muted);font-size:.9rem;margin-bottom:24px}
+.login-box input{width:100%;margin-bottom:16px}.login-box .btn{width:100%;justify-content:center}
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:.85rem;z-index:999;animation:fadeIn .3s;border:1px solid var(--border);background:var(--card-solid)}
+.toast.success{border-color:var(--success);color:var(--success)}.toast.error{border-color:var(--danger);color:var(--danger)}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px;color:var(--muted)}.empty i{font-size:2rem;margin-bottom:12px;display:block}
+.hamburger{display:none;position:fixed;top:12px;left:12px;z-index:200;font-size:1.3rem;color:var(--text);cursor:pointer;background:var(--card);border:1px solid var(--border);border-radius:8px;width:40px;height:40px;align-items:center;justify-content:center}
+@media(max-width:768px){
+.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}
+.main{margin-left:0;padding:16px}.hamburger{display:flex}
+.stats{grid-template-columns:repeat(2,1fr)}.evidence-grid{grid-template-columns:1fr}
+}
+.view{display:none}.view.active{display:block}
+.filter-bar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-bar select{padding:8px 12px;font-size:.82rem}
+.filter-bar label{font-size:.82rem;color:var(--muted)}
+.ai-report{background:rgba(15,52,96,.3);border:1px solid var(--accent2);border-radius:10px;padding:20px;margin-bottom:16px;white-space:pre-wrap;font-size:.88rem;line-height:1.7;max-height:400px;overflow-y:auto}
+.ai-report h4{color:var(--accent);margin-bottom:10px}
+.actions-cell{display:flex;gap:6px}
+.export-bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.export-bar .btn{font-size:.78rem}
+.threat-score-display{display:flex;align-items:center;gap:16px;padding:16px;border-radius:10px;margin-bottom:16px}
+.threat-score-display .score-ring{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;border:3px solid}
+.threat-score-low{background:rgba(0,210,106,.15);border-color:var(--success);color:var(--success)}
+.threat-score-medium{background:rgba(245,166,35,.15);border-color:var(--warn);color:var(--warn)}
+.threat-score-high{background:rgba(233,69,96,.15);border-color:var(--danger);color:var(--danger)}
+.threat-score-critical{background:rgba(233,69,96,.3);border-color:var(--danger);color:var(--danger)}
+#graph-svg{width:100%;height:500px;background:var(--card-solid);border:1px solid var(--border);border-radius:10px}
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--border)}
+.timeline-event{position:relative;margin-bottom:16px;padding:12px;background:var(--card-solid);border:1px solid var(--border);border-radius:8px}
+.timeline-event::before{content:'';position:absolute;left:-20px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+.timeline-event .ts{font-size:.72rem;color:var(--muted);margin-bottom:4px}
+.timeline-event .title{font-weight:500;margin-bottom:4px}
+.timeline-event .desc{font-size:.82rem;color:var(--muted)}
+.case-card{background:var(--card-solid);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer;transition:border .2s}
+.case-card:hover{border-color:var(--accent)}
+.case-card .case-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ioc-entry{background:var(--card-solid);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-size:.82rem}
+.ioc-entry .value{font-family:monospace;color:var(--accent)}
+.tlp-badge{padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;text-transform:uppercase}
+.tlp-red{background:#ff0000;color:#fff}
+.tlp-amber{background:#FFBF00;color:#000}
+.tlp-green{background:#33FF00;color:#000}
+.tlp-white{background:#fff;color:#000}
+</style>
+</head>
+<body>
+<div class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></div>
+<div id="app"></div>
+<div id="toast-container"></div>
+
+<script>
+const API = window.location.origin + '/api/v1';
+let token = localStorage.getItem('argus_token');
+let currentUser = null;
+
+function api(method, path, body) {
+  const opts = { method, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(API + path, opts).then(r => {
+    if (r.status === 401) { localStorage.removeItem('argus_token'); token = null; render(); throw new Error('Unauthorized'); }
+    return r.json().catch(() => ({}));
+  });
+}
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+async function render() {
+  if (!token) { renderLogin(); return; }
+  try { currentUser = await api('GET', '/users/me'); } catch { currentUser = null; }
+  if (!currentUser) { renderLogin(); return; }
+  renderApp();
+}
+
+function renderLogin() {
+  document.getElementById('app').innerHTML = `
+    <div class="login-screen">
+      <div class="login-box">
+        <div style="font-size:2.5rem;margin-bottom:8px">🦅</div>
+        <h2>Argus OSINT</h2>
+        <p class="subtitle">Enter your Telegram ID to authenticate</p>
+        <input type="number" id="login-tid" placeholder="Your Telegram ID" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="btn btn-primary" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Authenticate</button>
+      </div>
+    </div>`;
+}
+
+async function doLogin() {
+  const tid = document.getElementById('login-tid').value;
+  if (!tid) return;
+  try {
+    const data = await fetch(API + '/users/auth/telegram', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ telegram_id: parseInt(tid) })
+    }).then(r => r.json());
+    if (data.access_token) { token = data.access_token; localStorage.setItem('argus_token', token); toast('Authenticated!'); render(); }
+    else toast('Authentication failed', 'error');
+  } catch { toast('Connection error', 'error'); }
+}
+
+function logout() { localStorage.removeItem('argus_token'); token = null; render(); }
+
+function renderApp() {
+  document.getElementById('app').innerHTML = `
+    <div class="sidebar" id="sidebar">
+      <div class="logo">🦅 <span>Argus</span></div>
+      <nav class="nav">
+        <a href="#home" class="nav-link active" data-view="home"><i class="fas fa-chart-line"></i> Dashboard</a>
+        <a href="#investigations" class="nav-link" data-view="investigations"><i class="fas fa-search"></i> Investigations</a>
+        <a href="#cases" class="nav-link" data-view="cases"><i class="fas fa-folder-open"></i> Cases</a>
+        <a href="#watchlists" class="nav-link" data-view="watchlists"><i class="fas fa-list"></i> Watchlists</a>
+        <a href="#monitors" class="nav-link" data-view="monitors"><i class="fas fa-bell"></i> Monitors</a>
+        <a href="#plugins" class="nav-link" data-view="plugins"><i class="fas fa-puzzle-piece"></i> Plugins</a>
+        <a href="#templates" class="nav-link" data-view="templates"><i class="fas fa-stream"></i> Templates</a>
+        <a href="#settings" class="nav-link" data-view="settings"><i class="fas fa-cog"></i> Settings</a>
+      </nav>
+      <div style="padding:16px 20px;border-top:1px solid var(--border);font-size:.78rem;color:var(--muted)">
+        <div>${currentUser.username || 'User'} (ID: ${currentUser.telegram_id})</div>
+        <a href="#" onclick="logout();return false" style="color:var(--accent);text-decoration:none;margin-top:4px;display:block"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      </div>
+    </div>
+    <div class="main"><div id="view-content"><div class="spinner" style="margin:40px auto"></div></div></div>`;
+  
+  document.querySelectorAll('.nav-link').forEach(a => {
+    a.addEventListener('click', e => {
+      document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+      a.classList.add('active');
+      document.querySelector('.sidebar').classList.remove('open');
+    });
+  });
+  router();
+}
+
+const views = {};
+function registerView(name, fn) { views[name] = fn; }
+
+registerView('home', async (el) => {
+  let invs = [], mons = [];
+  try { invs = await api('GET', '/investigations?limit=10'); } catch {}
+  try { mons = await api('GET', '/monitors'); } catch {}
+  const completed = invs.filter ? invs.filter(i => i.status === 'completed').length : 0;
+  const threats = invs.filter ? invs.filter(i => (i.summary || '').includes('🚨')).length : 0;
+  el.innerHTML = `
+    <div class="topbar"><h1><i class="fas fa-chart-line" style="color:var(--accent)"></i> Dashboard</h1></div>
+    <div class="stats">
+      <div class="stat-card"><div class="icon" style="background:rgba(233,69,96,.15);color:var(--accent)"><i class="fas fa-search"></i></div><div class="value">${Array.isArray(invs) ? invs.length : 0}</div><div class="label">Total Investigations</div></div>
+      <div class="stat-card"><div class="icon" style="background:rgba(0,210,106,.15);color:var(--success)"><i class="fas fa-bell"></i></div><div class="value">${Array.isArray(mons) ? mons.filter(m => m.active).length : 0}</div><div class="label">Active Monitors</div></div>
+      <div class="stat-card"><div class="icon" style="background:rgba(15,52,96,.3);color:#6ea8fe"><i class="fas fa-check-circle"></i></div><div class="value">${completed}</div><div class="label">Completed</div></div>
+      <div class="stat-card"><div class="icon" style="background:rgba(245,166,35,.15);color:var(--warn)"><i class="fas fa-exclamation-triangle"></i></div><div class="value">${threats}</div><div class="label">Threat Alerts</div></div>
+    </div>
+    <div class="card"><h3><i class="fas fa-bolt" style="color:var(--accent)"></i> Quick Investigate</h3>
+      <div class="form-row"><div class="search-box"><i class="fas fa-crosshairs"></i><input id="quick-target" placeholder="Enter target: domain, IP, email, username, phone, BTC, .eth, VAT, VIN..."></div>
+      <select id="quick-template" style="max-width:180px"><option value="">Default (all plugins)</option><option value="quick">Quick</option><option value="full">Full</option><option value="brand_protection">Brand Protection</option><option value="darkweb">Darkweb</option><option value="pep_sanctions">PEP & Sanctions</option><option value="due_diligence">Due Diligence</option><option value="c2_hunt">C2 Hunt</option><option value="email_intel">Email Intel</option><option value="person">Person</option></select>
+      <button class="btn btn-primary" onclick="quickInvestigate()"><i class="fas fa-search"></i> Investigate</button></div>
+    </div>
+    <div class="card"><h3><i class="fas fa-clock" style="color:var(--accent2)"></i> Recent Investigations</h3>
+      <div class="table-wrap"><table><thead><tr><th>Target</th><th>Type</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>
+      ${(Array.isArray(invs) ? invs.slice(0, 10) : []).map(i => `<tr>
+        <td style="font-weight:500">${i.target}</td><td><span class="badge badge-info">${i.target_type}</span></td>
+        <td><span class="badge badge-${i.status === 'completed' ? 'success' : i.status === 'failed' ? 'danger' : 'warn'}">${i.status}</span></td>
+        <td style="color:var(--muted);font-size:.8rem">${(i.created_at || '').slice(0, 19)}</td>
+        <td class="actions-cell"><button class="btn btn-sm" onclick="location.hash='#investigation/${i.id}'"><i class="fas fa-eye"></i></button></td>
+      </tr>`).join('')}
+      </tbody></table></div>
+    </div>`;
+});
+
+async function quickInvestigate() {
+  const target = document.getElementById('quick-target').value.trim();
+  const template = document.getElementById('quick-template')?.value || null;
+  if (!target) return;
+  toast('Investigation started for ' + target + (template ? ' [' + template + ']' : ''));
+  try { await api('POST', '/investigations', { target, template }); } catch {}
+  setTimeout(() => router(), 2000);
+}
+
+registerView('investigations', async (el) => {
+  el.innerHTML = '<div class="topbar"><h1><i class="fas fa-search" style="color:var(--accent)"></i> Investigations</h1></div><div class="filter-bar"><label>Status:</label><select id="filter-status" onchange="loadInvestigations()"><option value="">All</option><option value="pending">Pending</option><option value="running">Running</option><option value="completed">Completed</option><option value="failed">Failed</option></select></div><div id="inv-table"><div class="spinner" style="margin:40px auto"></div></div>';
+  window.loadInvestigations = async () => {
+    const invs = await api('GET', '/investigations?limit=50');
+    const status = document.getElementById('filter-status')?.value || '';
+    const filtered = Array.isArray(invs) ? (status ? invs.filter(i => i.status === status) : invs) : [];
+    document.getElementById('inv-table').innerHTML = filtered.length ? `<div class="table-wrap"><table><thead><tr><th>Target</th><th>Type</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>${filtered.map(i => `<tr><td style="font-weight:500">${i.target}</td><td><span class="badge badge-info">${i.target_type}</span></td><td><span class="badge badge-${i.status==='completed'?'success':i.status==='failed'?'danger':'warn'}">${i.status}</span></td><td style="color:var(--muted);font-size:.8rem">${(i.created_at||'').slice(0,19)}</td><td class="actions-cell"><button class="btn btn-sm" onclick="location.hash='#investigation/${i.id}'"><i class="fas fa-eye"></i> View</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><i class="fas fa-inbox"></i>No investigations found</div>';
+  };
+  loadInvestigations();
+});
+
+registerView('investigation', async (el) => {
+  const id = location.hash.split('/')[2];
+  if (!id) { el.innerHTML = '<div class="empty"><i class="fas fa-question-circle"></i> Invalid investigation ID</div>'; return; }
+  el.innerHTML = '<div class="topbar"><h1><div class="spinner" style="width:16px;height:16px"></div> Loading investigation...</h1></div>';
+  try {
+    const inv = await api('GET', `/investigations/${id}`);
+    const statusCls = inv.status === 'completed' ? 'success' : inv.status === 'failed' ? 'danger' : 'warn';
+    const evidence = inv.evidence || [];
+    const evidenceCards = evidence.map(e => {
+      const d = e.data || {};
+      const entries = Object.entries(d).filter(([k, v]) => typeof v !== 'object' || v === null).slice(0, 8);
+      return `<div class="evidence-card"><h4><i class="fas fa-cube"></i> ${e.plugin_name}</h4>${entries.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${String(v).slice(0, 80)}</span></div>`).join('')}${typeof d === 'object' && Object.values(d).some(v => typeof v === 'object' && v) ? '<div style="margin-top:8px;font-size:.78rem;color:var(--muted)">+ more data available</div>' : ''}</div>`;
+    }).join('');
+    el.innerHTML = `
+      <div class="topbar"><h1><button class="btn btn-sm" onclick="history.back()" style="margin-right:8px"><i class="fas fa-arrow-left"></i></button> ${inv.target}</h1></div>
+      <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <div class="stat-card"><div class="label">Type</div><div><span class="badge badge-info">${inv.target_type}</span></div></div>
+        <div class="stat-card"><div class="label">Status</div><div><span class="badge badge-${statusCls}">${inv.status}</span></div></div>
+        <div class="stat-card"><div class="label">Created</div><div style="font-size:.85rem">${(inv.created_at||'').slice(0,19)}</div></div>
+        <div class="stat-card"><div class="label">Evidence</div><div style="font-size:1.1rem;font-weight:600">${evidence.length} plugins</div></div>
+      </div>
+      <div class="form-row">
+        <button class="btn" onclick="reinvestigate(${id})"><i class="fas fa-redo"></i> Re-investigate</button>
+        <button class="btn" onclick="aiAnalyze(${id})"><i class="fas fa-robot"></i> AI Report</button>
+        <a href="#graph/${id}" class="btn"><i class="fas fa-project-diagram"></i> Graph</a>
+        <a href="#timeline/${id}" class="btn"><i class="fas fa-stream"></i> Timeline</a>
+      </div>
+      <div class="card">
+        <h3><i class="fas fa-file-export" style="color:var(--success)"></i> Exports</h3>
+        <div class="export-bar">
+          <a class="btn btn-sm" target="_blank" href="/api/v1/exports/${id}/stix?token=${token}"><i class="fas fa-file-code"></i> STIX 2.1</a>
+          <a class="btn btn-sm" target="_blank" href="/api/v1/exports/${id}/misp?token=${token}"><i class="fas fa-file-code"></i> MISP</a>
+          <a class="btn btn-sm" target="_blank" href="/api/v1/exports/${id}/html?token=${token}"><i class="fas fa-file-alt"></i> HTML Report</a>
+          <a class="btn btn-sm" target="_blank" href="/api/v1/exports/${id}/markdown?token=${token}"><i class="fab fa-markdown"></i> Markdown</a>
+          <a class="btn btn-sm" target="_blank" href="/api/v1/exports/${id}/geojson?token=${token}"><i class="fas fa-map-marker-alt"></i> GeoJSON</a>
+          <a class="btn btn-sm" target="_blank" href="/api/v1/exports/${id}/kml?token=${token}"><i class="fas fa-globe"></i> KML</a>
+          <a class="btn btn-sm" target="_blank" href="/api/v1/exports/${id}/threat-score?token=${token}"><i class="fas fa-balance-scale"></i> Threat Score</a>
+          <a class="btn btn-sm" target="_blank" href="/api/v1/exports/${id}/chain-of-custody?token=${token}"><i class="fas fa-shield-alt"></i> Chain of Custody</a>
+        </div>
+      </div>
+      <div id="threat-score-slot"></div>
+      <div id="ai-report-slot"></div>
+      <div class="card"><h3><i class="fas fa-layer-group" style="color:var(--accent)"></i> Evidence (${evidence.length})</h3>
+        <div class="evidence-grid">${evidenceCards || '<div class="empty"><i class="fas fa-puzzle-piece"></i> No evidence collected</div>'}</div>
+      </div>`;
+    loadThreatScore(${id});
+    loadAIThreatScore(${id});
+  } catch { el.innerHTML = '<div class="empty"><i class="fas fa-exclamation-circle"></i> Failed to load investigation</div>'; }
+});
+
+async function reinvestigate(id) { toast('Re-investigating...'); try { await api('POST', `/investigations`, { target: 'reinvestigate' }); } catch {} setTimeout(() => router(), 2000); }
+async function aiAnalyze(id) { toast('Generating AI report...'); try { await api('POST', `/investigations/${id}/analyze`, { target: '', evidence: {} }); setTimeout(() => router(), 3000); } catch { toast('AI analysis failed', 'error'); } }
+async function loadThreatScore(id) {
+  try {
+    const ts = await api('GET', `/exports/${id}/threat-score`);
+    if (!ts.threat_score) return;
+    const score = ts.threat_score;
+    const lvl = score.level.toLowerCase();
+    document.getElementById('threat-score-slot').innerHTML = `
+      <div class="card">
+        <h3><i class="fas fa-balance-scale" style="color:var(--accent)"></i> Threat Assessment</h3>
+        <div class="threat-score-display">
+          <div class="score-ring threat-score-${lvl}">${score.score}</div>
+          <div style="flex:1">
+            <div style="font-size:1.2rem;font-weight:600;color:var(--${lvl==='critical'||lvl==='high'?'danger':lvl==='medium'?'warn':'success'})">${score.level}</div>
+            <div style="font-size:.82rem;color:var(--muted)">TLP: ${score.tlp} · Kill Chain: ${score.kill_chain_stages.join(' → ')}</div>
+          </div>
+        </div>
+        ${score.indicators.length ? '<div style="margin-top:12px"><strong>Indicators:</strong>' + score.indicators.map(i => `<div class="kv"><span class="k">${i.category} (${i.severity})</span><span class="v">${i.detail.slice(0,100)}</span></div>`).join('') + '</div>' : ''}
+        ${score.recommendations.length ? '<div style="margin-top:12px"><strong>Recommendations:</strong><ul style="margin-top:6px;padding-left:20px">' + score.recommendations.map(r => `<li style="font-size:.82rem;margin-bottom:4px">${r}</li>`).join('') + '</ul></div>' : ''}
+      </div>`;
+  } catch {}
+}
+async function loadAIThreatScore(id) { /* placeholder for additional async loads */ }
+
+registerView('monitors', async (el) => {
+  el.innerHTML = `<div class="topbar"><h1><i class="fas fa-bell" style="color:var(--accent)"></i> Monitors</h1></div>
+    <div class="card"><h3><i class="fas fa-plus-circle" style="color:var(--success)"></i> Create Monitor</h3>
+      <div class="form-row"><input id="mon-target" placeholder="Target (domain, IP, email...)" style="flex:1"><select id="mon-schedule"><option value="hourly">Hourly</option><option value="daily" selected>Daily</option><option value="weekly">Weekly</option></select><button class="btn btn-primary" onclick="createMonitor()"><i class="fas fa-plus"></i> Create</button></div>
+    </div><div id="mon-list"><div class="spinner" style="margin:40px auto"></div></div>`;
+  loadMonitors();
+  window.loadMonitors = async () => {
+    const mons = await api('GET', '/monitors');
+    const list = Array.isArray(mons) ? mons : [];
+    document.getElementById('mon-list').innerHTML = list.length ? `<div class="table-wrap"><table><thead><tr><th>Target</th><th>Type</th><th>Schedule</th><th>Status</th><th>Changes</th><th>Last Checked</th><th>Actions</th></tr></thead><tbody>${list.map(m => `<tr><td style="font-weight:500">${m.target}</td><td><span class="badge badge-info">${m.target_type}</span></td><td>${m.schedule}</td><td><span class="badge ${m.active ? 'badge-success' : 'badge-warn'}">${m.active ? 'Active' : 'Paused'}</span></td><td>${m.change_count || 0}</td><td style="color:var(--muted);font-size:.8rem">${(m.last_checked||'Never').slice ? m.last_checked.slice(0,16) : 'Never'}</td><td class="actions-cell"><button class="btn btn-sm" onclick="toggleMonitor(${m.id},${!m.active})">${m.active ? '⏸' : '▶'}</button><button class="btn btn-sm btn-danger" onclick="deleteMonitor(${m.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><i class="fas fa-bell-slash"></i> No monitors configured</div>';
+  };
+});
+
+async function createMonitor() {
+  const target = document.getElementById('mon-target').value.trim();
+  const schedule = document.getElementById('mon-schedule').value;
+  if (!target) return;
+  toast('Creating monitor...');
+  try { await api('POST', '/monitors', { target, schedule, telegram_chat_id: 0 }); toast('Monitor created!'); } catch { toast('Failed to create monitor', 'error'); }
+  setTimeout(() => loadMonitors(), 1000);
+}
+async function toggleMonitor(id, active) { try { await api('PATCH', `/monitors/${id}`, { active }); } catch {} setTimeout(() => loadMonitors(), 500); }
+async function deleteMonitor(id) { if (!confirm('Delete this monitor?')) return; try { await api('DELETE', `/monitors/${id}`); } catch {} setTimeout(() => loadMonitors(), 500); }
+
+registerView('plugins', async (el) => {
+  const groups = {
+    'Domain / URL': ['whois','dns','certs','ip_geo','http','shodan','wayback','bgp','reputation','subdomains','passive_dns','pastes','github_osint','google_dorks','github_dorks','redirect_chain','robots_sitemap','ssl_analysis','dnssec','spf_dmarc','shodan_dork','port_scan','technology','email_patterns','email_security'],
+    'IP Address': ['ip_geo','dns','shodan','bgp','reputation','passive_dns','ssl_analysis','shodan_dork','port_scan'],
+    'Email': ['email','breach','social_email','email_verify','email_patterns','breach_timeline','email_identity','email_security','email_age','email_domain_profile','email_username','email_disposable','email_reverse'],
+    'Username': ['username','profile','github_osint','pastes','google_dorks','github_dorks','social_posts'],
+    'Phone': ['phone'],
+    'Image': ['image'],
+    'Person / Company': ['entity','github_osint'],
+    'MAC Address': ['mac_lookup'],
+    'Crypto': ['crypto_tracer'],
+  };
+  const descs = {whois:'WHOIS/RDAP registration data',dns:'DNS records (A, MX, NS, TXT, CNAME)',certs:'Certificate Transparency via crt.sh',ip_geo:'IP geolocation and ISP info',http:'HTTP metadata, tech detection, security headers',shodan:'Shodan InternetDB ports, CVEs, tags',wayback:'Wayback Machine history',bgp:'BGP/ASN intelligence',reputation:'Threat intel from URLHaus, PhishTank, Spamhaus',subdomains:'Multi-source subdomain enumeration',passive_dns:'Passive DNS and reverse IP',pastes:'Paste/leak exposure hunting',github_osint:'GitHub code and user search',google_dorks:'Automated Google dorking for sensitive files',github_dorks:'GitHub secret exposure detection',redirect_chain:'HTTP redirect chain follower',robots_sitemap:'robots.txt and sitemap.xml parser',ssl_analysis:'SSL/TLS certificate analysis',dnssec:'DNSSEC validation',spf_dmarc:'Email security posture (SPF/DMARC/DKIM)',shodan_dork:'Shodan search queries',port_scan:'Port scanning and service detection',technology:'Enhanced technology fingerprinting',email_verify:'SMTP mailbox verification',email_patterns:'Email address discovery at a domain',breach_timeline:'Detailed breach history with timeline',email_identity:'Associated identities from cross-references',email_security:'Email security posture scoring',email_age:'Email age estimation',email_domain_profile:'Full domain profile for email domain',email_username:'Email-to-username correlation',email_disposable:'Disposable email detection (500+ providers)',email_reverse:'Reverse search across paste sites and web',profile:'Deep profile scrape (GitHub, Reddit, HN, X)',username:'Username hunt across 48+ platforms',phone:'Phone carrier, country, line type',image:'Image EXIF forensics and GPS',entity:'Person/company intelligence (news, SEC, LinkedIn)',mac_lookup:'MAC address vendor lookup',crypto_tracer:'Blockchain address tracing (BTC/ETH)',social_posts:'Recent social media activity'};
+  el.innerHTML = `<div class="topbar"><h1><i class="fas fa-puzzle-piece" style="color:var(--accent)"></i> Plugins (${Object.values(groups).flat().length})</h1></div>${Object.entries(groups).map(([g, plugins]) => `<div class="plugin-group"><h4 onclick="this.parentElement.classList.toggle('open')"><i class="fas fa-chevron-right"></i> ${g} (${plugins.length})</h4><div class="plugin-grid">${plugins.map(p => `<div class="plugin-card"><h5>${p}</h5><p>${descs[p] || 'OSINT data collection plugin'}</p></div>`).join('')}</div></div>`).join('')}`;
+});
+
+registerView('cases', async (el) => {
+  el.innerHTML = `<div class="topbar"><h1><i class="fas fa-folder-open" style="color:var(--accent)"></i> Cases</h1></div>
+    <div class="card"><h3><i class="fas fa-plus-circle" style="color:var(--success)"></i> New Case</h3>
+      <div class="form-row"><input id="case-name" placeholder="Case name" style="flex:1">
+      <select id="case-tlp"><option>AMBER</option><option>RED</option><option>GREEN</option><option>WHITE</option></select>
+      <select id="case-priority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="critical">Critical</option></select>
+      <button class="btn btn-primary" onclick="createCase()"><i class="fas fa-plus"></i> Create</button></div>
+      <input id="case-desc" placeholder="Case description (optional)" style="width:100%;margin-top:8px">
+    </div>
+    <div id="cases-list"><div class="spinner" style="margin:40px auto"></div></div>`;
+  loadCases();
+  window.loadCases = async () => {
+    let cases = [];
+    try { cases = await api('GET', '/cases'); } catch {}
+    const list = Array.isArray(cases) ? cases : [];
+    document.getElementById('cases-list').innerHTML = list.length
+      ? list.map(c => `<div class="case-card" onclick="location.hash='#case/${c.id}'">
+          <div class="case-header">
+            <div><strong>${c.name}</strong> <span class="tlp-badge tlp-${(c.tlp||'amber').toLowerCase()}">${c.tlp||'AMBER'}</span></div>
+            <span class="badge badge-info">${c.priority || 'medium'}</span>
+          </div>
+          <div style="font-size:.82rem;color:var(--muted)">${c.description || 'No description'}</div>
+          <div style="margin-top:8px;font-size:.78rem;color:var(--muted)">${c.investigation_count||0} investigations · ${c.status||'open'} · ${(c.updated_at||'').slice(0,10)}</div>
+        </div>`).join('')
+      : '<div class="empty"><i class="fas fa-folder-open"></i>No cases yet. Create one above.</div>';
+  };
+});
+window.createCase = async () => {
+  const name = document.getElementById('case-name').value.trim();
+  if (!name) return;
+  const description = document.getElementById('case-desc').value.trim() || null;
+  const tlp = document.getElementById('case-tlp').value;
+  const priority = document.getElementById('case-priority').value;
+  try { await api('POST', '/cases', { name, description, tlp, priority }); toast('Case created!'); } catch { toast('Failed', 'error'); }
+  setTimeout(() => loadCases(), 500);
+};
+
+registerView('case', async (el, params) => {
+  const id = params[0];
+  el.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
+  let c;
+  try { c = await api('GET', `/cases/${id}`); } catch { el.innerHTML = '<div class="empty"><i class="fas fa-exclamation-circle"></i> Case not found</div>'; return; }
+  el.innerHTML = `<div class="topbar"><h1><button class="btn btn-sm" onclick="history.back()" style="margin-right:8px"><i class="fas fa-arrow-left"></i></button> ${c.name}</h1></div>
+    <div class="card"><div class="case-header"><span class="tlp-badge tlp-${(c.tlp||'amber').toLowerCase()}">TLP:${c.tlp||'AMBER'}</span><span class="badge badge-info">${c.priority||'medium'} priority</span><span class="badge badge-${c.status==='open'?'success':'warn'}">${c.status||'open'}</span></div>
+      ${c.description ? `<p style="margin-top:8px;color:var(--muted)">${c.description}</p>` : ''}
+    </div>
+    <div class="card"><h3><i class="fas fa-search" style="color:var(--accent)"></i> Investigations (${c.investigations.length})</h3>
+      ${c.investigations.length ? '<div class="table-wrap"><table><thead><tr><th>Target</th><th>Type</th><th>Status</th><th>Added</th></tr></thead><tbody>' + c.investigations.map(i => `<tr><td><a href="#investigation/${i.id}" style="color:var(--accent);text-decoration:none">${i.target}</a></td><td><span class="badge badge-info">${i.target_type}</span></td><td><span class="badge badge-${i.status==='completed'?'success':'warn'}">${i.status}</span></td><td style="color:var(--muted);font-size:.78rem">${(i.added_at||'').slice(0,16)}</td></tr>`).join('') + '</tbody></table></div>' : '<div class="empty"><i class="fas fa-inbox"></i>No investigations linked</div>'}
+    </div>
+    <div class="card"><h3><i class="fas fa-sticky-note" style="color:var(--warn)"></i> Case Notes (${c.notes.length})</h3>
+      <div class="form-row"><input id="case-note-input" placeholder="Add a case note..." style="flex:1"><button class="btn btn-primary" onclick="addCaseNote(${id})"><i class="fas fa-plus"></i></button></div>
+      ${c.notes.length ? c.notes.map(n => `<div style="background:var(--card-solid);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:6px"><div style="font-size:.78rem;color:var(--muted);margin-bottom:4px">${(n.created_at||'').slice(0,16)}</div><div style="font-size:.88rem">${n.content}</div></div>`).join('') : '<div style="color:var(--muted);font-size:.82rem">No notes yet.</div>'}
+    </div>`;
+});
+window.addCaseNote = async (id) => {
+  const content = document.getElementById('case-note-input').value.trim();
+  if (!content) return;
+  try { await api('POST', `/cases/${id}/notes`, { content }); toast('Note added!'); setTimeout(() => router(), 500); } catch { toast('Failed', 'error'); }
+};
+
+registerView('watchlists', async (el) => {
+  el.innerHTML = `<div class="topbar"><h1><i class="fas fa-list" style="color:var(--accent)"></i> Watchlists & IOC Database</h1></div>
+    <div class="card"><h3><i class="fas fa-plus-circle" style="color:var(--success)"></i> New Watchlist</h3>
+      <div class="form-row"><input id="wl-name" placeholder="Watchlist name (e.g. 'Phishing IOCs')" style="flex:1">
+      <select id="wl-type"><option value="any">Any type</option><option value="ip">IP</option><option value="domain">Domain</option><option value="url">URL</option><option value="email">Email</option><option value="hash">Hash</option></select>
+      <button class="btn btn-primary" onclick="createWatchlist()"><i class="fas fa-plus"></i></button></div>
+    </div>
+    <div class="card"><h3><i class="fas fa-search" style="color:var(--accent2)"></i> Search IOCs Across All Investigations</h3>
+      <div class="form-row"><input id="ioc-search" placeholder="Search by value (IP, domain, hash, email)..." style="flex:1"><button class="btn" onclick="searchIOCs()"><i class="fas fa-search"></i></button></div>
+      <div id="ioc-search-results"></div>
+    </div>
+    <div id="wl-list"><div class="spinner" style="margin:40px auto"></div></div>`;
+  loadWatchlists();
+  window.loadWatchlists = async () => {
+    let wls = [];
+    try { wls = await api('GET', '/watchlists'); } catch {}
+    const list = Array.isArray(wls) ? wls : [];
+    document.getElementById('wl-list').innerHTML = list.length
+      ? list.map(w => `<div class="case-card" onclick="location.hash='#watchlist/${w.id}'">
+          <div class="case-header"><strong>${w.name}</strong><span class="badge badge-info">${w.ioc_type||'any'}</span></div>
+          <div style="font-size:.82rem;color:var(--muted)">${w.description || 'No description'}</div>
+          <div style="margin-top:6px;font-size:.78rem;color:var(--muted)">${w.entry_count||0} IOC entries</div>
+        </div>`).join('')
+      : '<div class="empty"><i class="fas fa-list"></i>No watchlists yet</div>';
+  };
+});
+window.createWatchlist = async () => {
+  const name = document.getElementById('wl-name').value.trim();
+  if (!name) return;
+  const ioc_type = document.getElementById('wl-type').value;
+  try { await api('POST', '/watchlists', { name, ioc_type }); toast('Watchlist created!'); } catch { toast('Failed', 'error'); }
+  setTimeout(() => loadWatchlists(), 500);
+};
+window.searchIOCs = async () => {
+  const q = document.getElementById('ioc-search').value.trim();
+  if (!q) return;
+  let results = [];
+  try { results = await api('GET', `/watchlists/ioc/search?q=${encodeURIComponent(q)}`); } catch {}
+  const r = Array.isArray(results) ? results : [];
+  document.getElementById('ioc-search-results').innerHTML = r.length
+    ? r.map(e => `<div class="ioc-entry"><div><span class="value">${e.value}</span> <span class="badge badge-info">${e.ioc_type}</span> <span class="tlp-badge tlp-${(e.tlp||'amber').toLowerCase()}">${e.tlp||'AMBER'}</span></div><div style="font-size:.72rem;color:var(--muted)">from ${e.source} · ${(e.last_seen||'').slice(0,16)}</div></div>`).join('')
+    : '<div style="color:var(--muted);font-size:.82rem">No IOCs found.</div>';
+};
+
+registerView('watchlist', async (el, params) => {
+  const id = params[0];
+  el.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
+  let w;
+  try { w = await api('GET', `/watchlists/${id}`); } catch { el.innerHTML = '<div class="empty"><i class="fas fa-exclamation-circle"></i> Watchlist not found</div>'; return; }
+  el.innerHTML = `<div class="topbar"><h1><button class="btn btn-sm" onclick="history.back()" style="margin-right:8px"><i class="fas fa-arrow-left"></i></button> ${w.name}</h1></div>
+    <div class="card"><h3><i class="fas fa-plus-circle" style="color:var(--success)"></i> Add IOC</h3>
+      <div class="form-row"><input id="ioc-value" placeholder="IOC value (IP, hash, domain, email)..." style="flex:1">
+      <select id="ioc-type"><option>ip</option><option>domain</option><option>url</option><option>email</option><option>hash</option></select>
+      <select id="ioc-tlp"><option>AMBER</option><option>RED</option><option>GREEN</option><option>WHITE</option></select>
+      <button class="btn btn-primary" onclick="addIOC(${id})"><i class="fas fa-plus"></i></button></div>
+    </div>
+    <div class="card"><h3><i class="fas fa-database" style="color:var(--accent)"></i> IOC Entries (${w.entries.length})</h3>
+      ${w.entries.length ? w.entries.map(e => `<div class="ioc-entry"><div><span class="value">${e.value}</span> <span class="badge badge-info">${e.ioc_type}</span> <span class="tlp-badge tlp-${(e.tlp||'amber').toLowerCase()}">${e.tlp||'AMBER'}</span></div><div style="display:flex;gap:6px;align-items:center"><span style="font-size:.72rem;color:var(--muted)">${(e.last_seen||'').slice(0,16)} · ${e.confidence||50}%</span><button class="btn btn-sm btn-danger" onclick="deleteIOC(${e.id})"><i class="fas fa-trash"></i></button></div></div>`).join('') : '<div class="empty"><i class="fas fa-inbox"></i>No IOCs yet</div>'}
+    </div>`;
+});
+window.addIOC = async (id) => {
+  const value = document.getElementById('ioc-value').value.trim();
+  if (!value) return;
+  const ioc_type = document.getElementById('ioc-type').value;
+  const tlp = document.getElementById('ioc-tlp').value;
+  try { await api('POST', `/watchlists/${id}/entries`, { value, ioc_type, tlp }); toast('IOC added!'); setTimeout(() => router(), 500); } catch { toast('Failed', 'error'); }
+};
+window.deleteIOC = async (id) => {
+  try { await api('DELETE', `/watchlists/entries/${id}`); toast('Deleted'); setTimeout(() => router(), 500); } catch {}
+};
+
+registerView('templates', async (el) => {
+  let templates = [];
+  try { templates = await api('GET', '/templates'); } catch {}
+  const list = Array.isArray(templates) ? templates : [];
+  el.innerHTML = `<div class="topbar"><h1><i class="fas fa-stream" style="color:var(--accent)"></i> Investigation Templates</h1></div>
+    <div class="card"><p style="color:var(--muted);font-size:.85rem;margin-bottom:12px">Pick a template to scope an investigation to a specific use case. Templates run a curated subset of plugins for faster, more focused results.</p></div>
+    ${list.map(t => `<div class="case-card"><div class="case-header"><strong>${t.name}</strong><button class="btn btn-sm btn-primary" onclick="location.hash='#home'">Use</button></div><p style="color:var(--muted);font-size:.85rem">${t.description || ''}</p><div style="margin-top:8px;font-size:.78rem;color:var(--muted)">Target types: ${Object.keys(t.plugins_per_type||{}).join(', ') || 'n/a'}</div></div>`).join('')}`;
+});
+
+registerView('graph', async (el, params) => {
+  const id = params[0];
+  if (!id) { el.innerHTML = '<div class="empty"><i class="fas fa-question-circle"></i> Invalid investigation ID</div>'; return; }
+  el.innerHTML = `<div class="topbar"><h1><button class="btn btn-sm" onclick="history.back()" style="margin-right:8px"><i class="fas fa-arrow-left"></i></button> Investigation Graph</h1></div>
+    <div class="card"><h3><i class="fas fa-project-diagram" style="color:var(--accent)"></i> Force-directed Graph (D3)</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px">Each plugin is a node connected to the target; extracted IOCs are child nodes. Drag nodes to reposition.</p>
+    <svg id="graph-svg"></svg>
+    </div>`;
+  let data;
+  try { data = await api('GET', `/graph/${id}`); } catch { el.innerHTML += '<div class="empty">Failed to load graph</div>'; return; }
+  renderGraph(data);
+});
+
+function renderGraph(data) {
+  const svg = document.getElementById('graph-svg');
+  if (!svg) return;
+  const width = svg.clientWidth || 800;
+  const height = 500;
+  const nodes = (data.nodes || []).map(n => ({ ...n }));
+  const edges = (data.edges || []).map(e => ({ source: nodes.find(n => n.id === e.source), target: nodes.find(n => n.id === e.target) })).filter(e => e.source && e.target);
+  const colors = { target: '#e94560', plugin: '#00d26a', ip: '#6ea8fe', domain: '#f5a623', email: '#9b59b6', url: '#3498db', hash: '#e94560', cve: '#e94560' };
+  // Simple force simulation
+  nodes.forEach((n, i) => { n.x = width/2 + Math.cos(i*2*Math.PI/nodes.length)*150; n.y = height/2 + Math.sin(i*2*Math.PI/nodes.length)*150; n.vx = 0; n.vy = 0; });
+  for (let iter = 0; iter < 200; iter++) {
+    edges.forEach(e => { const dx = e.target.x - e.source.x, dy = e.target.y - e.source.y; const d = Math.sqrt(dx*dx + dy*dy) || 1; const f = (d - 80) * 0.05; e.source.vx += dx/d * f; e.source.vy += dy/d * f; e.target.vx -= dx/d * f; e.target.vy -= dy/d * f; });
+    for (let i = 0; i < nodes.length; i++) for (let j = i+1; j < nodes.length; j++) { const dx = nodes[j].x - nodes[i].x, dy = nodes[j].y - nodes[i].y; const d = Math.sqrt(dx*dx + dy*dy) || 1; const f = 500 / (d*d); nodes[i].vx -= dx/d * f; nodes[i].vy -= dy/d * f; nodes[j].vx += dx/d * f; nodes[j].vy += dy/d * f; }
+    nodes.forEach(n => { n.vx *= 0.85; n.vy *= 0.85; n.x += n.vx; n.y += n.vy; n.x = Math.max(40, Math.min(width-40, n.x)); n.y = Math.max(20, Math.min(height-20, n.y)); });
+  }
+  let html = '';
+  edges.forEach(e => { html += `<line x1="${e.source.x}" y1="${e.source.y}" x2="${e.target.x}" y2="${e.target.y}" stroke="#16213e" stroke-width="1"/>`; });
+  nodes.forEach(n => {
+    const r = n.type === 'target' ? 18 : n.type === 'plugin' ? 12 : 8;
+    const c = colors[n.type] || '#888';
+    html += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${c}" stroke="#0a0a0f" stroke-width="2"/>`;
+    html += `<text x="${n.x}" y="${n.y - r - 4}" text-anchor="middle" fill="#e0e0e0" font-size="9" font-family="Inter">${(n.label||'').slice(0,18)}</text>`;
+  });
+  svg.innerHTML = html;
+}
+
+registerView('timeline', async (el, params) => {
+  const id = params[0];
+  if (!id) { el.innerHTML = '<div class="empty"><i class="fas fa-question-circle"></i> Invalid investigation ID</div>'; return; }
+  el.innerHTML = `<div class="topbar"><h1><button class="btn btn-sm" onclick="history.back()" style="margin-right:8px"><i class="fas fa-arrow-left"></i></button> Timeline</h1></div>
+    <div class="card"><h3><i class="fas fa-stream" style="color:var(--accent)"></i> Investigation Timeline</h3>
+    <div id="timeline-content"><div class="spinner" style="margin:40px auto"></div></div></div>`;
+  let data;
+  try { data = await api('GET', `/graph/${id}/timeline`); } catch { document.getElementById('timeline-content').innerHTML = '<div class="empty">Failed to load timeline</div>'; return; }
+  const events = data.events || [];
+  document.getElementById('timeline-content').innerHTML = events.length
+    ? '<div class="timeline">' + events.map(e => `<div class="timeline-event"><div class="ts">${(e.timestamp||'').slice(0,19)} · ${e.type}</div><div class="title">${e.icon||''} ${e.title||''}</div><div class="desc">${(e.description||'').slice(0,200)}</div></div>`).join('') + '</div>'
+    : '<div class="empty"><i class="fas fa-clock"></i>No timeline events</div>';
+});
+
+registerView('settings', async (el) => {
+  el.innerHTML = `<div class="topbar"><h1><i class="fas fa-cog" style="color:var(--accent)"></i> Settings</h1></div>
+    <div class="card"><h3><i class="fas fa-user" style="color:var(--accent2)"></i> Profile</h3>
+      <div class="kv" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="k" style="color:var(--muted)">Telegram ID</span><span>${currentUser?.telegram_id || 'N/A'}</span></div>
+      <div class="kv" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="k" style="color:var(--muted)">Username</span><span>${currentUser?.username || 'N/A'}</span></div>
+      <div class="kv" style="padding:8px 0"><span class="k" style="color:var(--muted)">Full Name</span><span>${currentUser?.full_name || 'N/A'}</span></div>
+    </div>
+    <div class="card"><h3><i class="fas fa-key" style="color:var(--warn)"></i> API Access</h3>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">Your JWT token for API access:</p>
+      <div style="display:flex;gap:8px"><input id="jwt-display" value="${token || ''}" readonly style="flex:1;font-size:.78rem;font-family:monospace"><button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('jwt-display').value);toast('Copied!')"><i class="fas fa-copy"></i></button></div>
+    </div>
+    <div class="card"><h3><i class="fas fa-link" style="color:var(--success)"></i> API Endpoints</h3>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">Interactive API documentation:</p>
+      <div class="form-row"><a href="/docs" target="_blank" class="btn"><i class="fas fa-book"></i> Swagger Docs</a><a href="/redoc" target="_blank" class="btn"><i class="fas fa-file-alt"></i> ReDoc</a><a href="/api/metrics" target="_blank" class="btn"><i class="fas fa-chart-bar"></i> Metrics</a></div>
+    </div>`;
+});
+
+function router() {
+  const hash = location.hash.slice(1) || 'home';
+  const [view, ...params] = hash.split('/');
+  const viewEl = document.getElementById('view-content');
+  if (!viewEl) return;
+  viewEl.innerHTML = '<div class="spinner" style="margin:40px auto"></div>';
+  const fn = views[view];
+  if (fn) { fn(viewEl, params).catch(e => { viewEl.innerHTML = `<div class="empty"><i class="fas fa-exclamation-triangle"></i> Error loading view: ${e.message}</div>`; }); }
+  else { viewEl.innerHTML = `<div class="empty"><i class="fas fa-compass"></i> View not found: ${view}</div>`; }
+}
+
+window.addEventListener('hashchange', router);
+render();
+</script>
+</body>
+</html>

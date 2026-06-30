@@ -1,0 +1,50 @@
+# ─── Slim Dockerfile for Argus OSINT (low-end / free-tier friendly) ────────
+# Target: <200MB image, fast cold start, works on Render/Railway/Fly.io/Heroku
+# Uses multi-stage build to keep only runtime deps
+
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# Build deps only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libxml2-dev libxslt1-dev libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --user -e .
+
+# ─── Runtime stage ─────────────────────────────────────────────────────────
+FROM python:3.12-slim AS runtime
+
+# Runtime libs only (no build tools → smaller image)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libxml2 libxslt1.1 libffi8 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash argus
+
+# Copy installed Python packages from builder
+COPY --from=builder /root/.local /home/argus/.local
+ENV PATH=/home/argus/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+COPY argus/ ./argus/
+COPY pyproject.toml README.md LICENSE ./
+
+USER argus
+
+# Persistent data volume (SQLite DB)
+VOLUME ["/app/data"]
+ENV ARGUS_DB_URL=sqlite+aiosqlite:////app/data/argus.db
+
+EXPOSE 8000
+
+# Healthcheck via stdlib (no curl needed)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
+
+WORKDIR /app/argus
+CMD ["python", "main.py"]

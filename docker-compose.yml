@@ -1,0 +1,18 @@
+services:
+  argus:
+    build: .
+    container_name: argus-osint
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - argus/.env
+    volumes:
+      - argus-data:/app/data
+    environment:
+      - ARGUS_DB_URL=sqlite+aiosqlite:////app/data/argus.db
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  argus-data:
+    driver: local

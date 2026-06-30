@@ -1,0 +1,27 @@
+# Railway deployment config — https://railway.app
+# Free tier: $5 credit/month, 500 hours. Argus runs well within this.
+#
+# Usage:
+#   1. Push this repo to GitHub
+#   2. New Project → Deploy from GitHub repo
+#   3. Railway will auto-detect railway.toml
+#   4. Add env vars in Railway dashboard: TELEGRAM_BOT_TOKEN, SESSION_SECRET, GEMINI_API_KEY (optional)
+#   5. App will be live at https://<your-project>.up.railway.app
+
+[deploy]
+runtime = "python"
+startCommand = "cd argus && python main.py"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[build]
+# Use the slim Dockerfile for fast cold-starts on free tier
+buildCommand = "echo 'No build step needed for Python'"
+
+[[services]]
+name = "argus"
+internal_port = 8000
+auto_start = true
+auto_stop = true  # Free tier: sleep when idle, wake on request

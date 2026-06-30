@@ -1,0 +1,34 @@
+# Render Blueprint — https://render.com
+# Free tier: 750 hours/month, 512MB RAM, auto-sleep after 15 min idle.
+#
+# Usage:
+#   1. Push this repo to GitHub
+#   2. New → Blueprint → select this repo
+#   3. Render will read render.yaml and create the service
+#   4. Add env vars in Render dashboard: TELEGRAM_BOT_TOKEN, SESSION_SECRET
+#   5. App will be live at https://<your-service>.onrender.com
+
+services:
+  - type: web
+    name: argus-osint
+    runtime: python
+    plan: free
+    buildCommand: "pip install -e ."
+    startCommand: "cd argus && python main.py"
+    envVars:
+      - key: API_PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: MAX_CONCURRENT_PLUGINS
+        value: "3"  # Low value for 512MB RAM
+      - key: INVESTIGATION_TIMEOUT_SECONDS
+        value: "180"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false  # Set manually in dashboard
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false  # Optional, set if you have one
+    healthCheckPath: /api/health
+    autoDeploy: true
