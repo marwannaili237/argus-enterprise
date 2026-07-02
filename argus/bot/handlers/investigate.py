@@ -74,12 +74,13 @@ async def cmd_investigate(message: Message):
                         return
                     data = await resp.json()
 
-            ids = data.get("investigations", [])
-            count = data.get("count", 0)
+            created_items = data.get("created", [])
+            total_created = data.get("total_created", 0)
+            ids = [item["id"] for item in created_items]
             await status_msg.edit_text(
-                f"✅ *{count} investigations started!*\n\n"
-                + "\n".join(f"  • #{i} `{targets[idx]}`" for idx, i in enumerate(ids[:15]))
-                + (f"\n  … and {count - 15} more" if count > 15 else "")
+                f"✅ *{total_created} investigations started!*\n\n"
+                + "\n".join(f"  • #{item['id']} `{item['target']}`" for item in created_items[:15])
+                + (f"\n  … and {total_created - 15} more" if total_created > 15 else "")
                 + "\n\n_Results will appear when each completes._",
                 parse_mode="Markdown",
             )

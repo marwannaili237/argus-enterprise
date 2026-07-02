@@ -152,8 +152,9 @@ async def cmd_history(message: Message):
         async with aiohttp.ClientSession() as session:
             headers = {"Authorization": f"Bearer {token}"}
             async with session.get(f"{API_BASE}/investigations?limit=10", headers=headers) as resp:
-                investigations = await resp.json()
+                response = await resp.json()
 
+        investigations = response.get("items", [])
         if not investigations:
             await message.answer("You haven't run any investigations yet.\n\nTry: `/investigate github.com`", parse_mode="Markdown")
             return

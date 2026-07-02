@@ -66,8 +66,9 @@ async def handle_callback(call: CallbackQuery):
             async with aiohttp.ClientSession() as s:
                 headers = {"Authorization": f"Bearer {token}"}
                 async with s.get(f"{API_BASE}/investigations?limit=10", headers=headers) as resp:
-                    investigations = await resp.json()
+                    response = await resp.json()
 
+            investigations = response.get("items", [])
             if not investigations:
                 await call.message.answer(
                     "No investigations yet.\n\nTry: `/investigate github.com`",

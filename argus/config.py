@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     max_concurrent_plugins: int = int(os.getenv("MAX_CONCURRENT_PLUGINS", "5"))
     enable_entity_extraction: bool = os.getenv("ENABLE_ENTITY_EXTRACTION", "true").lower() == "true"
     enable_chain_of_custody: bool = os.getenv("ENABLE_CHAIN_OF_CUSTODY", "true").lower() == "true"
+    
+    # AI Analysis Mode: "disabled" (no AI), "ollama" (local only), "gemini" (cloud), "auto" (ollama first, fallback to gemini)
+    ai_analysis_mode: str = os.getenv("AI_ANALYSIS_MODE", "auto")
+    
     ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
     enable_ollama: bool = os.getenv("ENABLE_OLLAMA", "false").lower() == "true"

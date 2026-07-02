@@ -435,9 +435,27 @@ async def run_investigation(investigation_id: int, template: str | None = None):
             pass
 
         ai_report = None
-        if combined_data and AI_PLUGIN._configured:
-            ai_result = await AI_PLUGIN.run(inv.target, evidence_data=combined_data)
-            if ai_result.success:
+        # AI Analysis: respect mode setting to control token usage
+        if combined_data and settings.ai_analysis_mode != "disabled":
+            ai_result = None
+            
+            # Try Ollama first if mode is "ollama" or "auto"
+            if settings.ai_analysis_mode in ("ollama", "auto"):
+                from intel.ollama_client import maybe_generate_report
+                ollama_result = await maybe_generate_report(inv.target, combined_data)
+                if ollama_result:
+                    from plugins.base import PluginResult
+                    ai_result = PluginResult(
+                        plugin_name="ai_analysis",
+                        success=True,
+                        data={"report": ollama_result.get("report"), "model": ollama_result.get("model"), "engine": "ollama"},
+                    )
+            
+            # Fall back to Gemini if mode is "gemini" or "auto" (and Ollama didn't work)
+            if not ai_result and settings.ai_analysis_mode in ("gemini", "auto") and AI_PLUGIN._configured:
+                ai_result = await AI_PLUGIN.run(inv.target, evidence_data=combined_data)
+            
+            if ai_result and ai_result.success:
                 ai_report = ai_result.data.get("report")
                 db.add(Evidence(
                     investigation_id=inv.id,
