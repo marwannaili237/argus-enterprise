@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Argus OSINT"
     debug: bool = False
-    api_port: int = 8000
+    api_port: int = int(os.getenv("PORT", 8000))
     argus_db_url: str = "sqlite+aiosqlite:///./argus.db"
 
     # Security: SESSION_SECRET must be provided in production
