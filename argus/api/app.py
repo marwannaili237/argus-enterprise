@@ -3,16 +3,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from database import init_db
+from database import init_db, close_db
 from api.routes import health, users, investigations, monitors, metrics, audit, templates, notes, webhooks, rss
 from api.routes import cases, tags, watchlists, exports, graph
 from api.routes import snapshots, search
 from api.routes import review_queue
+from api.middleware import RequestIDMiddleware, ErrorHandlingMiddleware, PerformanceMonitoringMiddleware
 from config import get_settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup
     await init_db()
     # Register canonical adapters at startup (explicit, not auto-discovery).
     # Only plugins in DEFAULT_ADAPTED_PLUGINS get canonical ingestion.
@@ -21,7 +23,11 @@ async def lifespan(app: FastAPI):
     count = register_default_adapters()
     import logging
     logging.getLogger("argus.api").info(f"Registered {count} canonical adapters at startup")
+    
     yield
+    
+    # Shutdown
+    await close_db()
 
 
 def create_app() -> FastAPI:
@@ -39,6 +45,14 @@ def create_app() -> FastAPI:
     if not cors_origins:
         cors_origins = ["*"]
 
+    # Add middleware in reverse order (last added = first executed)
+    # Performance monitoring should be outermost
+    app.add_middleware(PerformanceMonitoringMiddleware)
+    # Error handling middleware
+    app.add_middleware(ErrorHandlingMiddleware)
+    # Request ID tracking
+    app.add_middleware(RequestIDMiddleware)
+    # CORS middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,

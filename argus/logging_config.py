@@ -5,9 +5,14 @@ Configures Python's logging system to emit one JSON object per line.
 Each line contains: timestamp, level, logger, message, and any extra fields.
 """
 import logging
+import logging.config
+import logging.handlers
 import json
 import sys
 from datetime import datetime, timezone
+from config import get_settings
+
+settings = get_settings()
 
 
 class JsonFormatter(logging.Formatter):
@@ -42,14 +47,40 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_entry, default=str)
 
 
-def setup_logging(level: int = logging.INFO):
-    """Configure the root logger with JSON-formatted output to stdout."""
+def setup_logging(level: int = None):
+    """
+    Configure the root logger with JSON-formatted output to stdout and file.
+    
+    Args:
+        level: Logging level (default: DEBUG if settings.debug else INFO)
+    """
+    if level is None:
+        level = logging.DEBUG if settings.debug else logging.INFO
+    
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
 
     # Remove any existing handlers to avoid duplicates
     root_logger.handlers.clear()
 
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
-    root_logger.addHandler(handler)
+    # Console handler (stdout)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(JsonFormatter())
+    root_logger.addHandler(console_handler)
+    
+    # File handler with rotation (production-ready)
+    try:
+        file_handler = logging.handlers.RotatingFileHandler(
+            "argus.log",
+            maxBytes=10485760,  # 10MB
+            backupCount=5,
+        )
+        file_handler.setFormatter(JsonFormatter())
+        root_logger.addHandler(file_handler)
+    except Exception as e:
+        print(f"Warning: Could not set up file logging: {e}")
+    
+    # Suppress verbose third-party loggers
+    logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
+    logging.getLogger("aiogram").setLevel(logging.INFO)
+    logging.getLogger("aiohttp").setLevel(logging.WARNING)
