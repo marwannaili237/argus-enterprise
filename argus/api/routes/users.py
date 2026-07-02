@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel, Field
@@ -7,15 +7,19 @@ from models import User, Investigation
 from api.deps import get_current_user, require_admin
 from api.auth import create_user_token
 from api.rate_limit import rate_limit
+from api.telegram_auth import verify_telegram_data, extract_telegram_user
+from config import get_settings
 from fastapi import Depends as _Depends
 
 router = APIRouter(prefix="/users", tags=["users"])
+settings = get_settings()
 
 
-class TelegramAuthRequest(BaseModel):
-    telegram_id: int = Field(..., gt=0, lt=10_000_000_000)  # Telegram IDs are positive < 10B
-    username: str | None = Field(None, max_length=64)
-    full_name: str | None = Field(None, max_length=128)
+class TelegramWebAppAuthRequest(BaseModel):
+    """Secure Telegram Web App authentication data with HMAC verification."""
+    user: dict = Field(..., description="User object from Telegram Web App")
+    auth_date: int = Field(..., description="Unix timestamp of authentication")
+    hash: str = Field(..., description="HMAC-SHA256 signature")
 
 
 class TokenResponse(BaseModel):
@@ -29,61 +33,94 @@ class TokenResponse(BaseModel):
 
 @router.post("/auth/telegram", response_model=TokenResponse,
              dependencies=[_Depends(rate_limit(limit=10, window=60))])
-async def auth_telegram(req: TelegramAuthRequest, db: AsyncSession = Depends(get_db)):
+async def auth_telegram(
+    req: TelegramWebAppAuthRequest,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Exchange a Telegram ID for a JWT.
-
-    ⚠️ SECURITY NOTE: This endpoint does NOT verify the caller actually owns
-    the Telegram ID. In production you MUST either:
-      (a) Use Telegram's `data-send` Web App flow with HMAC verification, or
-      (b) Have the bot issue the JWT directly (bot/handlers/start.py) and
-          deliver it to the user via a deep-link.
-    For local/dev use, the first registered user becomes admin automatically.
-
-    See SECURITY.md for the recommended hardening path.
+    Authenticate using Telegram Web App data with HMAC-SHA256 verification.
+    
+    This endpoint implements the secure Telegram Web App authentication flow:
+    1. Receives user data, auth_date, and HMAC signature from Telegram Web App
+    2. Verifies the HMAC signature using the bot token
+    3. Checks that auth_date is recent (prevents replay attacks)
+    4. Creates or updates the user in the database
+    5. Issues a JWT token
+    
+    Security: This endpoint prevents spoofing by verifying the HMAC signature
+    and checking the freshness of the auth_date timestamp.
+    
+    Reference: https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app
     """
-    result = await db.execute(select(User).where(User.telegram_id == req.telegram_id))
+    if not settings.telegram_bot_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Telegram bot token not configured"
+        )
+    
+    # Verify the Telegram data using HMAC
+    req_dict = req.model_dump()
+    is_valid, error_message = verify_telegram_data(req_dict, settings.telegram_bot_token)
+    
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Authentication failed: {error_message}"
+        )
+    
+    # Extract user information from verified data
+    user_info = extract_telegram_user(req_dict)
+    telegram_id = user_info["telegram_id"]
+    
+    if not telegram_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing telegram_id in user data"
+        )
+    
+    # Look up or create user
+    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
-
-    # Determine if this is the first user (becomes admin)
-    user_count_result = await db.execute(select(func.count()).select_from(User))
-    user_count = user_count_result.scalar() or 0
-    is_first_user = user_count == 0
-
-    warning = (
-        "Dev-mode auth: any Telegram ID is accepted. Use the Telegram bot "
-        "(/start) for secure authentication in production."
-    )
-
+    
     if not user:
+        # Determine if this is the first user (becomes admin)
+        user_count_result = await db.execute(select(func.count()).select_from(User))
+        user_count = user_count_result.scalar() or 0
+        is_first_user = user_count == 0
+        
         user = User(
-            telegram_id=req.telegram_id,
-            username=req.username,
-            full_name=req.full_name,
+            telegram_id=telegram_id,
+            username=user_info["username"],
+            full_name=user_info["full_name"],
             role="admin" if is_first_user else "analyst",
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
     else:
-        user.username = req.username or user.username
-        user.full_name = req.full_name or user.full_name
+        # Update user information if provided
+        if user_info["username"]:
+            user.username = user_info["username"]
+        if user_info["full_name"]:
+            user.full_name = user_info["full_name"]
         await db.commit()
-
+    
+    # Create JWT token
     token = create_user_token(telegram_id=user.telegram_id, user_id=user.id)
+    
     return TokenResponse(
         access_token=token,
         user_id=user.id,
         telegram_id=user.telegram_id,
         role=user.role,
-        warning=warning,
     )
 
 
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Get the current authenticated user's profile."""
     count_result = await db.execute(
-        select(func.count()).where(Investigation.user_id == current_user.id)
+        select(func.count()).select_from(Investigation).where(Investigation.user_id == current_user.id)
     )
     total = count_result.scalar() or 0
     return {
@@ -112,7 +149,10 @@ async def update_user_role(
     """Change a user's role. Admin only."""
     valid_roles = {"admin", "analyst", "viewer"}
     if req.role not in valid_roles:
-        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}"
+        )
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

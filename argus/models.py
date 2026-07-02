@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Integer, Text, Boolean, DateTime, ForeignKey, JSON, Index
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from datetime import datetime, timezone
 from database import Base
@@ -27,6 +27,12 @@ class User(Base):
 
 class Investigation(Base):
     __tablename__ = "investigations"
+    __table_args__ = (
+        Index("ix_investigations_user_id", "user_id"),
+        Index("ix_investigations_status", "status"),
+        Index("ix_investigations_created_at", "created_at"),
+        Index("ix_investigations_user_status", "user_id", "status"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
@@ -46,6 +52,10 @@ class Investigation(Base):
 
 class Evidence(Base):
     __tablename__ = "evidence"
+    __table_args__ = (
+        Index("ix_evidence_investigation_id", "investigation_id"),
+        Index("ix_evidence_plugin_name", "plugin_name"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     investigation_id: Mapped[int] = mapped_column(Integer, ForeignKey("investigations.id"), nullable=False)
@@ -58,6 +68,12 @@ class Evidence(Base):
 
 class Monitor(Base):
     __tablename__ = "monitors"
+    __table_args__ = (
+        Index("ix_monitors_user_id", "user_id"),
+        Index("ix_monitors_active", "active"),
+        Index("ix_monitors_next_check", "next_check"),
+        Index("ix_monitors_user_active", "user_id", "active"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)

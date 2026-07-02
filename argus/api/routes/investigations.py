@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, asc, func, or_
+from sqlalchemy.orm import joinedload
 from pydantic import BaseModel, Field
 from database import get_db
 from models import User, Investigation, Evidence
@@ -108,17 +109,18 @@ async def get_investigation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Use eager loading to fetch investigation and evidence in a single query
     result = await db.execute(
-        select(Investigation).where(Investigation.id == inv_id, Investigation.user_id == current_user.id)
+        select(Investigation)
+        .options(joinedload(Investigation.evidence))
+        .where(Investigation.id == inv_id, Investigation.user_id == current_user.id)
     )
-    inv = result.scalar_one_or_none()
+    inv = result.unique().scalar_one_or_none()
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
 
-    evidence_result = await db.execute(
-        select(Evidence).where(Evidence.investigation_id == inv_id)
-    )
-    evidence = evidence_result.scalars().all()
+    # Evidence is already loaded via joinedload
+    evidence = inv.evidence
 
     return {
         "id": inv.id,

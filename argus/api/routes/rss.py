@@ -4,13 +4,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from html import escape
 
-from fastapi import APIRouter, HTTPException, Response, Query, Path
+from fastapi import APIRouter, HTTPException, Response, Depends, Path
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import User, Investigation
-from api.auth import decode_token
+from api.deps import get_current_user
 
 router = APIRouter(tags=["rss"])
 
@@ -51,26 +51,22 @@ def _build_rxml(items: list[dict], base_url: str) -> str:
 @router.get("/users/{user_id}/rss")
 async def user_rss_feed(
     user_id: int = Path(..., description="User ID"),
-    key: str = Query(..., description="JWT token"),
+    current_user: User = Depends(get_current_user),
 ):
     """Return RSS 2.0 XML feed of the user's last 20 investigations.
 
-    Authentication is via query parameter ``key`` which must be a valid
-    JWT for the given *user_id*.
+    Authentication is via the Authorization header (Bearer token).
+    Users can only access their own RSS feed.
     """
-    payload = decode_token(key)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    token_uid = int(payload.get("uid", 0))
-    if token_uid != user_id:
-        raise HTTPException(status_code=403, detail="Token does not match user")
+    # Ensure user can only access their own RSS feed
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot access another user's RSS feed")
 
     from database import AsyncSessionLocal
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(Investigation)
-            .where(Investigation.user_id == user_id)
+            .where(Investigation.user_id == current_user.id)
             .order_by(desc(Investigation.created_at))
             .limit(20)
         )

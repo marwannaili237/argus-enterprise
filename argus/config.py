@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from functools import lru_cache
 import os
-import secrets
 
 
 class Settings(BaseSettings):
@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     api_port: int = 8000
     argus_db_url: str = "sqlite+aiosqlite:///./argus.db"
 
-    secret_key: str = os.getenv("SESSION_SECRET", secrets.token_hex(32))
+    # Security: SESSION_SECRET must be provided in production
+    secret_key: str = os.getenv("SESSION_SECRET", "")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
 
@@ -37,6 +38,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
     enable_ollama: bool = os.getenv("ENABLE_OLLAMA", "false").lower() == "true"
+    
     # Optional free API keys (all 100% free, no CC required)
     virustotal_api_key: str = os.getenv("VIRUSTOTAL_API_KEY", "")
     urlscan_api_key: str = os.getenv("URLSCAN_API_KEY", "")
@@ -52,6 +54,19 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     from_email: str = ""
+
+    @field_validator("secret_key", mode="after")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        """Ensure SESSION_SECRET is set in production."""
+        if not v:
+            raise ValueError(
+                "SESSION_SECRET environment variable must be set in production. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+            )
+        if len(v) < 32:
+            raise ValueError("SESSION_SECRET must be at least 32 characters long")
+        return v
 
 
 @lru_cache
