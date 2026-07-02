@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     etherscan_api_key: str = os.getenv("ETHERSCAN_API_KEY", "")
     otx_api_key: str = os.getenv("OTX_API_KEY", "")  # optional, free
 
+    # Bot & API configuration
+    api_base_url: str = os.getenv("API_BASE_URL", "")  # Production API URL (e.g., https://api.example.com/api/v1)
+    
     # SMTP (email notifications)
     smtp_host: str = ""
     smtp_port: int = 587
