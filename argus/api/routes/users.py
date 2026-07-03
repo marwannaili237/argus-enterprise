@@ -28,10 +28,9 @@ class TokenResponse(BaseModel):
     warning: str | None = None
 
 @router.post("/auth/telegram")
-async def auth_telegram(req: dict):
+async def auth_telegram(req):
     try:
-        print("Auth telegram called with req:", req)
-        if "telegram_id" in req:
+        if isinstance(req, dict) and "telegram_id" in req:
             return {"access_token": "test_token", "user_id": 1, "telegram_id": req["telegram_id"], "role": "admin"}
         return {"error": "No tid"}
     except Exception as e:
