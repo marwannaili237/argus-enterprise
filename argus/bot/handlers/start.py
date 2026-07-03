@@ -21,25 +21,14 @@ API_BASE = API_BASE.rstrip("/")
 
 async def get_or_create_token(message: Message) -> str | None:
     """
-    Authenticate with the API using Telegram Web App data.
+    Authenticate with the API.
     
-    In production, this should use the secure Telegram Web App flow with HMAC verification.
-    For now, we send the user's Telegram ID to the API endpoint.
+    Uses the simplified telegram_id authentication for bot users.
     """
     try:
         async with aiohttp.ClientSession() as session:
-            # Use the secure Telegram Web App authentication endpoint
             payload = {
-                "user": {
-                    "id": message.from_user.id,
-                    "first_name": message.from_user.first_name or "",
-                    "last_name": message.from_user.last_name or "",
-                    "username": message.from_user.username or "",
-                    "is_bot": message.from_user.is_bot,
-                    "language_code": message.from_user.language_code or "",
-                },
-                "auth_date": int(message.date.timestamp()),
-                "hash": "",  # TODO: Implement HMAC-SHA256 signature for production
+                "telegram_id": message.from_user.id,
             }
             
             async with session.post(

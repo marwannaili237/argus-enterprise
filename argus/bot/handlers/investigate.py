@@ -7,7 +7,7 @@ from bot.handlers.start import get_or_create_token
 
 router = Router()
 settings = get_settings()
-API_BASE = f"http://localhost:{settings.api_port}/api/v1"
+from bot.api_client import api_request, API_BASE
 
 TARGET_HELP = {
     "domain":   ("🌐", "WHOIS · DNS · Cert Transparency · IP Geo · HTTP"),

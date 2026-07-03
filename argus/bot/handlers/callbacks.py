@@ -12,7 +12,7 @@ from bot.handlers.results import _chunk_text
 
 router = Router()
 settings = get_settings()
-API_BASE = f"http://localhost:{settings.api_port}/api/v1"
+from bot.api_client import api_request, API_BASE
 
 
 def _parse_cb(data: str):
