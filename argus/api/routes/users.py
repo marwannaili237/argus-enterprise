@@ -16,7 +16,6 @@ settings = get_settings()
 
 
 class TelegramWebAppAuthRequest(BaseModel):
-    """Secure Telegram Web App authentication data with HMAC verification."""
     user: dict = Field(..., description="User object from Telegram Web App")
     auth_date: int = Field(..., description="Unix timestamp of authentication")
     hash: str = Field(..., description="HMAC-SHA256 signature")
@@ -37,35 +36,17 @@ async def auth_telegram(
     req: dict,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Authenticate using Telegram ID (Simplified for standalone web app)
-    or Telegram Web App data.
-    """
     try:
-        if not settings.telegram_bot_token:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Telegram bot token not configured"
-            )
-        
-        # Handle simplified login { "telegram_id": 123 }
         if "telegram_id" in req:
             telegram_id = req["telegram_id"]
-            
-            # Look up or create user
             result = await db.execute(select(User).where(User.telegram_id == telegram_id))
             user = result.scalar_one_or_none()
-            
             if not user:
-                user_count_result = await db.execute(select(func.count()).select_from(User))
-                user_count = user_count_result.scalar() or 0
-                is_first_user = user_count == 0
-                
                 user = User(
                     telegram_id=telegram_id,
                     username=f"user_{telegram_id}",
-                    full_name="Telegram User",
-                    role="admin" if is_first_user else "analyst",
+                    full_name="Debug User",
+                    role="admin",
                 )
                 db.add(user)
                 await db.commit()
@@ -78,47 +59,32 @@ async def auth_telegram(
                 telegram_id=user.telegram_id,
                 role=user.role,
             )
-
-        # Otherwise, handle full Telegram Web App HMAC verification
+        
+        # Full HMAC flow
         try:
             auth_req = TelegramWebAppAuthRequest(**req)
             req_dict = auth_req.model_dump()
         except Exception as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid auth data: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid auth data: {e}")
 
         is_valid, error_message = verify_telegram_data(req_dict, settings.telegram_bot_token)
         if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Authentication failed: {error_message}"
-            )
+            raise HTTPException(status_code=401, detail=f"Auth failed: {error_message}")
         
         user_info = extract_telegram_user(req_dict)
         telegram_id = user_info["telegram_id"]
-        
-        if not telegram_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing telegram_id")
-        
         result = await db.execute(select(User).where(User.telegram_id == telegram_id))
         user = result.scalar_one_or_none()
-        
         if not user:
-            user_count_result = await db.execute(select(func.count()).select_from(User))
-            user_count = user_count_result.scalar() or 0
-            is_first_user = user_count == 0
             user = User(
                 telegram_id=telegram_id,
                 username=user_info["username"],
                 full_name=user_info["full_name"],
-                role="admin" if is_first_user else "analyst",
+                role="analyst",
             )
             db.add(user)
             await db.commit()
             await db.refresh(user)
-        else:
-            if user_info["username"]: user.username = user_info["username"]
-            if user_info["full_name"]: user.full_name = user_info["full_name"]
-            await db.commit()
         
         token = create_user_token(telegram_id=user.telegram_id, user_id=user.id)
         return TokenResponse(
@@ -127,17 +93,13 @@ async def auth_telegram(
             telegram_id=user.telegram_id,
             role=user.role,
         )
-    except HTTPException as he:
-        raise he
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Get the current authenticated user's profile."""
     count_result = await db.execute(
         select(func.count()).select_from(Investigation).where(Investigation.user_id == current_user.id)
     )
@@ -165,20 +127,10 @@ async def update_user_role(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Change a user's role. Admin only."""
-    valid_roles = {"admin", "analyst", "viewer"}
-    if req.role not in valid_roles:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}"
-        )
-
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
     user.role = req.role
     await db.commit()
-
     return {"id": user.id, "telegram_id": user.telegram_id, "role": user.role}
