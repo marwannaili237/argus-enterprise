@@ -32,6 +32,12 @@ async def auth_telegram(req: dict):
     try:
         if "telegram_id" in req:
             tid = req["telegram_id"]
+            # Ensure tid is an integer
+            try:
+                tid = int(tid)
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="telegram_id must be an integer")
+
             async with AsyncSessionLocal() as db:
                 res = await db.execute(select(User).where(User.telegram_id == tid))
                 user = res.scalar_one_or_none()
@@ -42,9 +48,11 @@ async def auth_telegram(req: dict):
                     await db.refresh(user)
                 token = create_user_token(telegram_id=user.telegram_id, user_id=user.id)
                 return {"access_token": token, "user_id": user.id, "telegram_id": user.telegram_id, "role": user.role}
-        return {"error": "No tid"}
+        raise HTTPException(status_code=400, detail="No telegram_id provided")
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

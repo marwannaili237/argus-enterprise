@@ -1,13 +1,10 @@
-"""
-FastAPI middleware for error handling, request logging, and performance monitoring.
-"""
-import logging
-import time
-import uuid
-from fastapi import Request, Response
+from fastapi import Request, Response, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
+import logging
+import time
+import uuid
 
 logger = logging.getLogger("argus.api.middleware")
 
@@ -33,6 +30,9 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             return response
+        except HTTPException as exc:
+            # Let FastAPI's own HTTPException handler handle this
+            raise exc
         except Exception as exc:
             request_id = getattr(request.state, "request_id", "unknown")
             logger.error(

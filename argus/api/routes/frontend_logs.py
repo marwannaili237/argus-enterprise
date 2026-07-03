@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Body, Request
+from fastapi import APIRouter, Body, Request, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models import FrontendLog
-from sqlalchemy import insert
+from sqlalchemy import insert, select, desc
 from typing import Any
+from api.deps import require_admin
 
 router = APIRouter(prefix="/frontend-logs", tags=["frontend-logs"])
 
@@ -17,14 +18,6 @@ async def post_log(
     message = payload.get("message", "")
     context = payload.get("context", {})
     
-    # Optional: try to get user from token if present
-    user_id = None
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        # This is a simplified way to get user_id without full auth middleware
-        # In production, use proper dependency
-        pass
-
     log = FrontendLog(
         level=level,
         message=message,
@@ -35,9 +28,6 @@ async def post_log(
     await db.commit()
     return {"status": "ok"}
 
-# Import Depends here to avoid circular imports if necessary
-from fastapi import Depends
-
 @router.get("/view", response_model=None)
 async def view_logs(
     current_user=Depends(require_admin),
@@ -45,7 +35,6 @@ async def view_logs(
     limit: int = Query(100, le=1000),
 ):
     """View recent frontend logs (admin only)."""
-    from sqlalchemy import desc
     result = await db.execute(
         select(FrontendLog).order_by(desc(FrontendLog.created_at)).limit(limit)
     )
