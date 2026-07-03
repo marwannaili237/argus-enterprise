@@ -50,8 +50,6 @@ def create_app() -> FastAPI:
     # Add middleware in reverse order (last added = first executed)
     # Performance monitoring should be outermost
     app.add_middleware(PerformanceMonitoringMiddleware)
-    # Error handling middleware
-    app.add_middleware(ErrorHandlingMiddleware)
     # Request ID tracking
     app.add_middleware(RequestIDMiddleware)
     # CORS middleware
