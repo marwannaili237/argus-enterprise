@@ -37,3 +37,26 @@ async def post_log(
 
 # Import Depends here to avoid circular imports if necessary
 from fastapi import Depends
+
+@router.get("/view", response_model=None)
+async def view_logs(
+    current_user=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+    limit: int = Query(100, le=1000),
+):
+    """View recent frontend logs (admin only)."""
+    from sqlalchemy import desc
+    result = await db.execute(
+        select(FrontendLog).order_by(desc(FrontendLog.created_at)).limit(limit)
+    )
+    logs = result.scalars().all()
+    return [
+        {
+            "level": log.level,
+            "message": log.message,
+            "context": log.context,
+            "ip": log.ip_address,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+        }
+        for log in logs
+    ]
