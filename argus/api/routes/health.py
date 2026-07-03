@@ -8,6 +8,10 @@ router = APIRouter()
 async def health():
     return {"status": "ok", "service": "argus-api", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+@router.post("/test-auth")
+async def test_auth(req: dict):
+    return {"status": "ok", "message": "Health router works", "received": req}
+
 
 @router.get("/ready")
 async def ready():
