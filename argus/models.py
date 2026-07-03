@@ -260,3 +260,13 @@ class EnrichedEntity(Base):
     context: Mapped[str] = mapped_column(Text, nullable=True)
     confidence: Mapped[int] = mapped_column(Integer, default=80)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+class FrontendLog(Base):
+    __tablename__ = "frontend_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    level: Mapped[str] = mapped_column(String(16), nullable=False)  # info|warn|error
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    context: Mapped[dict] = mapped_column(JSON, nullable=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    ip_address: Mapped[str] = mapped_column(String(45), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

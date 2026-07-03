@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from database import init_db, close_db
 from api.routes import health, users, investigations, monitors, metrics, audit, templates, notes, webhooks, rss
 from api.routes import cases, tags, watchlists, exports, graph
+from api.routes import frontend_logs
 from api.routes import snapshots, search
 from api.routes import review_queue
 from api.middleware import RequestIDMiddleware, ErrorHandlingMiddleware, PerformanceMonitoringMiddleware
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(snapshots.router, prefix="/api/v1")
     app.include_router(search.router, prefix="/api/v1")
     app.include_router(review_queue.router, prefix="/api/v1")
+    app.include_router(frontend_logs.router, prefix="/api/v1")
 
     # --- Static files & dashboard ---
     import os
