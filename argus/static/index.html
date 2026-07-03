@@ -117,20 +117,35 @@ input:focus,select:focus{border-color:var(--accent)}
 <div id="toast-container"></div>
 
 <script>
+console.log("Argus OSINT Frontend starting...");
 const API = window.location.origin + '/api/v1';
+console.log("API URL:", API);
 let token = localStorage.getItem('argus_token');
+console.log("Token found:", !!token);
 let currentUser = null;
 
 function api(method, path, body) {
+  console.log(`API Request: ${method} ${path}`, body ? {body} : {});
   const opts = { method, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   return fetch(API + path, opts).then(r => {
-    if (r.status === 401) { localStorage.removeItem('argus_token'); token = null; render(); throw new Error('Unauthorized'); }
+    console.log(`API Response: ${r.status} ${path}`);
+    if (r.status === 401) { 
+      console.warn("Unauthorized - clearing token");
+      localStorage.removeItem('argus_token'); 
+      token = null; 
+      render(); 
+      throw new Error('Unauthorized'); 
+    }
     return r.json().catch(() => ({}));
+  }).catch(err => {
+    console.error("API Fetch Error:", err);
+    throw err;
   });
 }
 
 function toast(msg, type = 'success') {
+  console.log(`Toast: ${msg} (${type})`);
   const el = document.createElement('div');
   el.className = 'toast ' + type;
   el.textContent = msg;
@@ -139,9 +154,26 @@ function toast(msg, type = 'success') {
 }
 
 async function render() {
-  if (!token) { renderLogin(); return; }
-  try { currentUser = await api('GET', '/users/me'); } catch { currentUser = null; }
-  if (!currentUser) { renderLogin(); return; }
+  console.log("Rendering application...");
+  if (!token) { 
+    console.log("No token - rendering login");
+    renderLogin(); 
+    return; 
+  }
+  try { 
+    console.log("Fetching current user...");
+    currentUser = await api('GET', '/users/me'); 
+    console.log("User fetched:", currentUser);
+  } catch (e) { 
+    console.error("Error fetching user:", e);
+    currentUser = null; 
+  }
+  if (!currentUser) { 
+    console.log("No current user - rendering login");
+    renderLogin(); 
+    return; 
+  }
+  console.log("Rendering app dashboard");
   renderApp();
 }
 
